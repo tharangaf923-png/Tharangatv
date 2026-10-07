@@ -1,1 +1,101 @@
-<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Tharanga TV</title><script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script><style>*{margin:0;padding:0;box-sizing:border-box;font-family:sans-serif}body{background:#020610;color:#fff;padding:6px}.h{padding:12px;background:#0a162c;border:2px solid gold;border-radius:12px;text-align:center}.h b{color:gold}#box{width:100%;height:280px;background:#000;border-radius:12px;margin-top:6px;border:2px solid gold}video{width:100%;height:100%}#st{padding:8px;text-align:center;background:#0a1a2a;border-radius:8px;margin-top:5px;font-size:12px;color:#00ff88}#se{width:100%;padding:10px;margin-top:6px;background:#10182c;border:1px solid gold;border-radius:10px;color:#fff}.tabs{display:flex;gap:5px;margin-top:6px;overflow:auto}.tab{padding:6px 12px;background:#10182c;border-radius:20px;font-size:11px;white-space:nowrap}.tab.on{background:gold;color:#000;font-weight:800}.grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:5px;margin-top:6px}.c{padding:8px;background:#10182c;border-radius:8px;border:1px solid #333;text-align:center}.c.on{border-color:gold}.c b{font-size:8px;display:block}</style></head><body><div class="h"><b>⭐ THARANGA 130+ TV</b><div id="cnt" style="font-size:10px;color:#888">Loading...</div></div><div id="box"><video id="v" controls autoplay playsinline></video></div><div id="st">Loading...</div><input id="se" placeholder="Search HBO, Hiru..." oninput="sr()"><div class="tabs"><div class="tab on" onclick="ft('all',this)">All</div><div class="tab" onclick="ft('movie',this)">Movies</div><div class="tab" onclick="ft('sinhala',this)">Sinhala</div><div class="tab" onclick="ft('sport',this)">Cricket</div><div class="tab" onclick="ft('kids',this)">Kids</div></div><div id="g" class="grid"></div><script>const urls=["https://watch.livecricketsl.xyz/dont_share.php","https://lktv.miinbandara.workers.dev/playlist.m3u?key=mykey1"];let all=[],fil=[],cur=0,hls=null,v=document.getElementById('v'),cat='all';async function get(u){try{let r=await fetch(u);if(r.ok){let t=await r.text();if(t.length>200)return t;}}catch(e){}try{let r=await fetch("https://api.allorigins.win/raw?url="+encodeURIComponent(u));return await r.text();}catch(e){}return"";}async function init(){let m=[];for(let u of urls){let t=await get(u);if(!t)continue;let ls=t.split('\n'),nm="";ls.forEach(l=>{l=l.trim();if(l.startsWith('#EXTINF')){let mm=l.match(/,(.*)$/);nm=mm?mm[1].trim():"Live";}else if(l.startsWith('http')){m.push({n:nm,u:l});nm="";}});}let mp={};m.forEach(c=>{let k=c.n.toLowerCase();if(!mp[k])mp[k]=c;});all=Object.values(mp);fil=all;document.getElementById('cnt').innerText=all.length+" Channels";document.getElementById('st').innerText="✅ "+all.length+" Ready!";rend();if(all.length>0)play(0);}function rend(){let list=cat=='all'?fil:fil.filter(c=>{let n=c.n.toLowerCase();if(cat=='movie')return n.includes('hbo')||n.includes('star')||n.includes('pix')||n.includes('movie')||n.includes('cinema')||n.includes('mnx');if(cat=='sinhala')return n.includes('hiru')||n.includes('derana')||n.includes('sirasa')||n.includes('swarna')||n.includes('itn');if(cat=='sport')return n.includes('cricket')||n.includes('sport')||n.includes('ten');if(cat=='kids')return n.includes('kids')||n.includes('cartoon');return true;});let h="";list.forEach(c=>{let ri=all.indexOf(c);h+=`<div class="c ${ri==cur?'on':''}" onclick="play(${ri})">📺<b>${c.n.substring(0,15)}</b></div>`});document.getElementById('g').innerHTML=h;}function play(i){cur=i;rend();let ch=all[i];document.getElementById('st').innerText="▶️ "+ch.n;if(Hls.isSupported()){if(hls)hls.destroy();hls=new Hls();hls.loadSource(ch.u);hls.attachMedia(v);hls.on(Hls.Events.MANIFEST_PARSED,()=>v.play());}else{v.src=ch.u;v.play();}}function sr(){let q=document.getElementById('se').value.toLowerCase();fil=q?all.filter(c=>c.n.toLowerCase().includes(q)):all;rend();}function ft(c,el){cat=c;document.querySelectorAll('.tab').forEach(t=>t.classList.remove('on'));el.classList.add('on');rend();}init();</script></body></html>
+<!DOCTYPE html>
+<html lang="si">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tharanga TV - 130+ Live</title>
+<script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+<style>
+body{background:#0a0a0a;color:#fff;font-family:sans-serif;margin:0}
+#player{width:100%;height:50vh;background:#000;position:sticky;top:0}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px;padding:15px}
+.card{background:#1e1e1e;padding:12px;border-radius:12px;text-align:center;cursor:pointer;border:1px solid #333;font-size:13px}
+.card:hover{border-color:#ff0000}
+.card.active{border-color:#ff0000;background:#330000;color:#fff}
+input{width:90%;margin:15px 5%;padding:12px;border-radius:20px;border:none;background:#1e1e1e;color:#fff;text-align:center;font-size:16px}
+h2{padding:0 15px}
+.top{padding:15px;text-align:center;background:#111}
+</style>
+</head>
+<body>
+<div class="top"><b>📺 Tharanga TV - 130+ Channels Auto</b></div>
+<video id="player" controls autoplay></video>
+<input type="text" id="search" placeholder="Search Hiru, Sirasa, HBO... 🔍">
+<h2 id="count">Loading Channels...</h2>
+<div class="grid" id="list"></div>
+<script>
+const video=document.getElementById('player');
+const listDiv=document.getElementById('list');
+const search=document.getElementById('search');
+let allChannels=[];
+const playlists=[
+'https://iptv-org.github.io/iptv/countries/lk.m3u',
+'https://raw.githubusercontent.com/iptv-org/iptv/master/countries/lk.m3u'
+];
+async function loadAll(){
+ let combined="";
+ for(let url of playlists){
+  try{
+   let r=await fetch('https://api.allorigins.win/raw?url='+encodeURIComponent(url));
+   let t=await r.text();
+   combined+=t+"\n";
+  }catch(e){}
+ }
+ // Add manual extra for 130+
+ combined+=`
+#EXTINF:-1, Hiru TV
+https://d3eye7hg0q082c.cloudfront.net/hiru/playlist.m3u8
+#EXTINF:-1, Sirasa TV
+https://d3eye7hg0q082c.cloudfront.net/sirasa/playlist.m3u8
+#EXTINF:-1, ITN Sri Lanka
+https://mhlive.focuzs.com/ITN/master.m3u8
+#EXTINF:-1, Derana TV
+https://d3eye7hg0q082c.cloudfront.net/derana/playlist.m3u8
+`;
+ parseM3U(combined);
+}
+function parseM3U(text){
+ const lines=text.split('\n');
+ for(let i=0;i<lines.length;i++){
+  if(lines[i].startsWith('#EXTINF')){
+   let name=lines[i].split(',')[1]||'Channel';
+   let url=lines[i+1];
+   if(url && url.trim().startsWith('http')){
+    allChannels.push({name:name.trim(),url:url.trim()});
+   }
+  }
+ }
+ allChannels=[...new Map(allChannels.map(c=>[c.url,c])).values()];
+ document.getElementById('count').innerText=allChannels.length+'+ Channels Loaded ✅';
+ render(allChannels);
+ if(allChannels.length>0) play(allChannels[0]);
+}
+function render(channels){
+ listDiv.innerHTML="";
+ channels.forEach(c=>{
+  let d=document.createElement('div');
+  d.className='card';
+  d.innerText=c.name.substring(0,22);
+  d.onclick=()=>play(c,d);
+  listDiv.appendChild(d);
+ });
+}
+function play(c,el){
+ if(Hls.isSupported()){
+  let hls=new Hls();
+  hls.loadSource(c.url);
+  hls.attachMedia(video);
+  hls.on(Hls.Events.MANIFEST_PARSED,()=>video.play());
+ }else{ video.src=c.url; video.play(); }
+ document.querySelectorAll('.card').forEach(x=>x.classList.remove('active'));
+ if(el) el.classList.add('active');
+ window.scrollTo(0,0);
+}
+search.oninput=()=>{
+ let q=search.value.toLowerCase();
+ render(allChannels.filter(c=>c.name.toLowerCase().includes(q)));
+}
+loadAll();
+</script>
+</body>
+</html>
