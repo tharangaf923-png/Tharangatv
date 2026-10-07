@@ -1,0 +1,818 @@
+<!DOCTYPE html>
+<html lang="si">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Tharanga TV & Radio</title>
+  <script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.7"></script>
+  <style>
+    :root {
+      --bg: #060a12;
+      --card: #101826;
+      --card-focus: #1a2a42;
+      --accent: #00d4ff;
+      --text: #f0f4ff;
+      --muted: #8b9bb4;
+      --live: #ff2d55;
+      --border: #1c2a40;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body {
+      height: 100%;
+      font-family: 'Segoe UI', system-ui, -apple-system, 'Noto Sans Sinhala', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      overflow-x: hidden;
+    }
+
+    header {
+      height: 70px;
+      background: linear-gradient(90deg, #0a1220, #121f35);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 24px;
+      position: sticky;
+      top: 0;
+      z-index: 200;
+    }
+    .brand { display: flex; align-items: center; gap: 14px; }
+    .logo-wrap {
+      width: 48px; height: 48px; border-radius: 50%;
+      background: linear-gradient(135deg, #00d4ff, #0077ff, #ff6b00);
+      display: flex; align-items: center; justify-content: center;
+      animation: spin 6s linear infinite;
+      box-shadow: 0 0 18px rgba(0,212,255,0.45);
+    }
+    .logo-inner {
+      width: 40px; height: 40px; border-radius: 50%; background: #0a1220;
+      display: flex; align-items: center; justify-content: center;
+      font-weight: 900; font-size: 1.1rem; color: var(--accent);
+      animation: spin-reverse 6s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    @keyframes spin-reverse { to { transform: rotate(-360deg); } }
+
+    .brand-text { font-weight: 800; font-size: 1.5rem; letter-spacing: 0.5px; }
+    .brand-text .tharanga { transition: color 0.4s ease; }
+    .brand-text .tv { color: #fff; }
+
+    .live-badge {
+      background: var(--live); color: #fff; font-size: 0.75rem; font-weight: 700;
+      padding: 4px 10px; border-radius: 6px; letter-spacing: 0.5px;
+      animation: pulse 1.5s infinite;
+    }
+    @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.5; } }
+
+    .search {
+      background: #152038; border: 2px solid var(--border); border-radius: 10px;
+      padding: 10px 16px; color: #fff; width: 200px; font-size: 1rem; outline: none;
+    }
+    .search:focus { border-color: var(--accent); }
+
+
+    /* FM Radio Audio Player */
+    .radio-player-section {
+      display: none;
+      background: linear-gradient(135deg, #07111f, #101d31);
+      border-top: 1px solid var(--border);
+      border-bottom: 1px solid var(--border);
+      padding: 18px 20px;
+    }
+    .radio-player-section.active { display: block; }
+    .radio-player-box {
+      max-width: 1000px;
+      margin: 0 auto;
+      display: flex;
+      align-items: center;
+      gap: 18px;
+      flex-wrap: wrap;
+    }
+    .radio-art {
+      width: 82px; height: 82px; border-radius: 18px;
+      object-fit: contain; background: #0a101c; padding: 10px;
+      border: 2px solid var(--accent);
+      box-shadow: 0 0 20px rgba(0,212,255,.2);
+      flex-shrink: 0;
+    }
+    .radio-info { flex: 1; min-width: 180px; }
+    .radio-now-name { font-size: 1.25rem; font-weight: 800; }
+    .radio-now-group { color: var(--muted); margin-top: 3px; }
+    .radio-live { color: #ff2d55; font-size: .78rem; font-weight: 800; margin-top: 6px; }
+    .radio-controls {
+      width: 100%; display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+    }
+    .radio-controls audio { flex: 1; min-width: 240px; height: 42px; }
+    .radio-close {
+      background: #1a2a42; color: #ff4d6a; border: 1px solid #ff4d6a;
+      padding: 8px 14px; border-radius: 10px; cursor: pointer; font-weight: 700;
+    }
+    @media (max-width: 600px) {
+      .radio-player-section { padding: 14px; }
+      .radio-art { width: 68px; height: 68px; }
+      .radio-now-name { font-size: 1.05rem; }
+      .radio-controls audio { min-width: 100%; }
+    }
+
+    .player-section { display: none; background: #000; position: relative; }
+    .player-section.active { display: block; }
+    .player-section:fullscreen, .player-section:-webkit-full-screen {
+      width: 100vw; height: 100vh; background: #000;
+    }
+    .player-section:fullscreen .player-bar, .player-section:-webkit-full-screen .player-bar {
+      position: absolute; bottom: 0; left: 0; right: 0; z-index: 50;
+      background: linear-gradient(transparent, rgba(0,0,0,0.85));
+    }
+    video { width: 100%; max-height: 55vh; background: #000; display: block; }
+    .player-section:fullscreen video, .player-section:-webkit-full-screen video {
+      max-height: 100vh; height: 100vh; object-fit: contain;
+    }
+
+    .fs-watermark {
+      display: none; position: absolute; left: 20px; top: 10%; z-index: 100;
+      font-size: 1.3rem; font-weight: 800; pointer-events: none;
+      text-shadow: 2px 2px 8px rgba(0,0,0,0.8);
+      animation: floatUpDown 8s ease-in-out infinite alternate, colorToggle 2s infinite;
+    }
+    .player-section:fullscreen .fs-watermark,
+    .player-section:-webkit-full-screen .fs-watermark { display: block; }
+
+    @keyframes floatUpDown { 0% { top: 8%; } 100% { top: 80%; } }
+    @keyframes colorToggle { 0%, 49% { color: #ffffff; } 50%, 100% { color: #00d4ff; } }
+
+    .player-bar {
+      background: #0c1424; padding: 12px 20px; display: flex; align-items: center;
+      justify-content: space-between; border-bottom: 1px solid var(--border); gap: 12px; flex-wrap: wrap;
+    }
+    .now-info { flex: 1; min-width: 200px; }
+    .now-name { font-weight: 700; font-size: 1.25rem; }
+    .now-group { font-size: 0.85rem; color: var(--muted); margin-top: 2px; }
+    
+    .btn-row { display: flex; gap: 8px; flex-shrink: 0; align-items: center; }
+    .btn, select.quality-select {
+      background: #1a2a42; border: 2px solid var(--border); color: #fff;
+      padding: 8px 14px; border-radius: 10px; font-size: 0.9rem; cursor: pointer;
+      font-weight: 600; transition: 0.15s; outline: none;
+    }
+    .btn:focus, .btn:hover, select.quality-select:focus { border-color: var(--accent); background: #223554; }
+    .btn-fs { background: linear-gradient(135deg, #00b4d8, #0077b6); border-color: #00d4ff; }
+    .btn-fav { border-color: #ffb703; color: #ffb703; }
+    .btn-close { border-color: #ff4d6a; color: #ff4d6a; }
+    
+    .status {
+      position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%);
+      background: rgba(0,0,0,0.85); padding: 14px 28px; border-radius: 12px;
+      font-size: 1.1rem; display: none; z-index: 30;
+    }
+
+    .section-title {
+      padding: 20px 20px 10px; font-size: 1.1rem; text-transform: uppercase;
+      letter-spacing: 1.2px; color: var(--accent); font-weight: 700;
+      display: flex; justify-content: space-between; align-items: center;
+    }
+    .grid {
+      display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+      gap: 14px; padding: 8px 16px 30px;
+    }
+    .card {
+      background: var(--card); border-radius: 14px; overflow: hidden; cursor: pointer;
+      border: 3px solid transparent; transition: 0.15s; text-align: center; outline: none;
+      position: relative;
+    }
+    .card:focus, .card:hover, .card.active {
+      border-color: var(--accent); background: var(--card-focus);
+      transform: scale(1.04); box-shadow: 0 0 20px rgba(0,212,255,0.25);
+    }
+    .card img { width: 100%; height: 90px; object-fit: contain; background: #0a101c; padding: 12px; }
+    .folder-icon { font-size: 3.5rem; line-height: 90px; background: #0a101c; }
+    .card .name { font-size: 0.95rem; font-weight: 600; padding: 10px 6px 12px; line-height: 1.3; }
+    .card-wrap { position: relative; }
+    .live-tag {
+      position: absolute; top: 8px; right: 8px; background: var(--live);
+      color: #fff; font-size: 0.65rem; font-weight: 700; padding: 3px 7px; border-radius: 5px; z-index: 5;
+    }
+    .num-tag {
+      position: absolute; top: 8px; left: 8px; background: rgba(0,0,0,0.7);
+      color: var(--accent); font-size: 0.75rem; font-weight: 800; padding: 2px 6px; border-radius: 4px; z-index: 5;
+    }
+
+    .category-bar { display: flex; gap: 8px; padding: 0 16px 16px; overflow-x: auto; }
+    .cat-btn {
+      background: #152038; border: 1px solid var(--border); color: var(--muted);
+      padding: 6px 14px; border-radius: 20px; font-size: 0.85rem; cursor: pointer; white-space: nowrap; outline: none;
+    }
+    .cat-btn.active, .cat-btn:focus, .cat-btn:hover {
+      background: var(--accent); color: #000; font-weight: 700; border-color: var(--accent);
+    }
+
+    .back-btn {
+      background: #1a2a42; color: #fff; border: 1px solid var(--accent);
+      padding: 6px 14px; border-radius: 8px; cursor: pointer; font-size: 0.9rem; outline: none;
+    }
+    .back-btn:focus { border-color: #fff; background: var(--accent); color: #000; }
+
+    footer { text-align: center; padding: 20px; color: var(--muted); font-size: 0.85rem; }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="brand">
+      <div class="logo-wrap"><div class="logo-inner">T</div></div>
+      <div class="brand-text">
+        <span class="tharanga" id="tharangaName">Tharanga</span><span class="tv"> TV & Radio</span>
+      </div>
+    </div>
+    <div style="display:flex;align-items:center;gap:16px;">
+      <span class="live-badge">● LIVE</span>
+      <input class="search" id="q" placeholder="සොයන්න..." oninput="handleSearch()" tabindex="0" />
+    </div>
+  </header>
+
+
+  <!-- FM Radio Audio Player -->
+  <div class="radio-player-section" id="radioPlayerSection">
+    <div class="radio-player-box">
+      <img class="radio-art" id="radioArt" src="" alt="FM Radio">
+      <div class="radio-info">
+        <div class="radio-now-name" id="radioNowName">—</div>
+        <div class="radio-now-group" id="radioNowGroup">FM Radio</div>
+        <div class="radio-live">● FM LIVE</div>
+      </div>
+      <div class="radio-controls">
+        <audio id="radioAudio" controls preload="none"></audio>
+        <button class="radio-close" onclick="closeRadioPlayer()">✕ වසන්න</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="player-section" id="playerSection">
+    <div style="position:relative">
+      <video id="video" controls playsinline></video>
+      <div class="fs-watermark">Tharanga TV</div>
+      <div class="status" id="status">Loading...</div>
+    </div>
+    <div class="player-bar">
+      <div class="now-info">
+        <div class="now-name" id="nowName">—</div>
+        <div class="now-group" id="nowGroup">—</div>
+      </div>
+      <div class="btn-row">
+        <select id="qualitySelect" class="quality-select" onchange="changeQuality(this.value)">
+          <option value="-1">Auto Quality</option>
+        </select>
+        <button class="btn btn-fav" id="btnFav" onclick="toggleFavCurrent()" tabindex="0">★ Favorite</button>
+        <button class="btn btn-fs" id="btnFs" onclick="toggleFullscreen()" tabindex="0">⛶ Fullscreen</button>
+        <button class="btn btn-close" onclick="closePlayer()" tabindex="0">✕ වසන්න</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="mainArea">
+    <div class="section-title">⭐ මාගේ ප්‍රියතම එකතුව (Favorites)</div>
+    <div class="grid" id="favGrid"></div>
+
+    <div class="section-title">🇱🇰 දේශීය TV නාලිකා (Sri Lanka)</div>
+    <div class="grid" id="slGrid"></div>
+
+    <div class="section-title">📻 ශ්‍රී ලංකා රේඩියෝ (Radio Category)</div>
+    <div class="grid" id="radioFolderGrid"></div>
+
+    <div class="section-title">🌐 ජාත්‍යන්තර රටවල් (International Countries)</div>
+    <div class="grid" id="countryGrid"></div>
+  </div>
+
+  <!-- Radio Folder View -->
+  <div id="radioView" style="display:none;">
+    <div class="section-title">
+      <span>📻 Sri Lanka FM Radio</span>
+      <button class="back-btn" onclick="showMainArea()" tabindex="0">← ආපසු (Back)</button>
+    </div>
+    <div class="grid" id="radioChannelsGrid"></div>
+  </div>
+
+  <!-- Country View -->
+  <div id="countryView" style="display:none;">
+    <div class="section-title">
+      <span id="countryTitle">Country Channels</span>
+      <button class="back-btn" onclick="showMainArea()" tabindex="0">← ආපසු (Back)</button>
+    </div>
+    <div class="category-bar" id="categoryBar"></div>
+    <div class="grid" id="countryChannelsGrid"></div>
+  </div>
+
+  <footer>Tharanga TV & Radio • නොමිලේ සජීවී නාලිකා</footer>
+
+  <script>
+    const PROXY = "https://peo.kawditha.codes";
+    const FALLBACK_LOGO = "https://i.postimg.cc/mD83Sjrm/tharanga-default.png";
+
+    // Animated Title
+    const colors = ["#00d4ff", "#ff6b00", "#a855f7", "#22c55e", "#f43f5e"];
+    let colorIndex = 0;
+    const nameEl = document.getElementById("tharangaName");
+    setInterval(() => {
+      colorIndex = (colorIndex + 1) % colors.length;
+      nameEl.style.color = colors[colorIndex];
+    }, 1000);
+
+    // SL TV Channels with Original Direct Logos
+    const slChannels = [
+      {n:"සිරස TV", g:"දේශීය", p:"sirasa", l:"https://upload.wikimedia.org/wikipedia/commons/thumb/4/4e/Sirasa_TV_logo.png/320px-Sirasa_TV_logo.png"},
+      {n:"ටීවී දෙරණ", g:"දේශීය", p:"derana", l:"https://upload.wikimedia.org/wikipedia/commons/thumb/7/7b/TV_Derana_Logo.png/320px-TV_Derana_Logo.png"},
+      {n:"හිරු TV", g:"දේශීය", p:"hiru", l:"https://upload.wikimedia.org/wikipedia/commons/thumb/a/a2/Hiru_TV_logo.png/320px-Hiru_TV_logo.png"},
+      {n:"සියත TV", g:"දේශීය", p:"siyatha", l:"https://siyatha.com/wp-content/uploads/2020/09/siyatha-tv-logo.png"},
+      {n:"ස්වර්ණවාහිනී", g:"දේශීය", p:"swarnawahini", l:"https://swarnavahini.lk/wp-content/uploads/2021/04/swarnavahini-logo.png"},
+      {n:"අයිටීඑන්", g:"දේශීය", p:"itn", l:"https://upload.wikimedia.org/wikipedia/commons/thumb/a/a2/ITN_Sri_Lanka_logo.png/320px-ITN_Sri_Lanka_logo.png"},
+      {n:"රූපවාහිනී", g:"දේශීය", p:"rupavahini", l:"https://upload.wikimedia.org/wikipedia/en/thumb/5/5a/Sri_Lanka_Rupavahini_Corporation_logo.png/200px-Sri_Lanka_Rupavahini_Corporation_logo.png"},
+      {n:"චරණ TV", g:"දේශීය", p:"charana", l:"https://charanatv.lk/images/logo.png"},
+      {n:"සුප්‍රීම් TV", g:"දේශීය", p:"tv-supreme", l:"https://supremetv.lk/wp-content/uploads/2021/08/supreme-tv-logo.png"},
+      {n:"අද දෙරණ 24", g:"පුවත්", p:"ada-derana-24", l:"https://upload.wikimedia.org/wikipedia/en/thumb/8/8c/Ada_Derana_logo.png/220px-Ada_Derana_logo.png"},
+      {n:"ශක්ති TV", g:"දෙමළ", p:"shakthi", l:"https://upload.wikimedia.org/wikipedia/en/thumb/d/d4/Shakthi_TV_logo.png/220px-Shakthi_TV_logo.png"},
+      {n:"ද බුද්ධිස්ට්", g:"ආගමික", p:"buddhist", l:"https://www.thebuddhist.tv/images/logo.png"}
+    ];
+
+    // FM Radio Channels — HTTPS direct streams
+    // Sources checked against current working-stream listings.
+    const radioChannels = [
+      {n:"හිරු FM", g:"FM Radio", u:"https://radio.lotustechnologieslk.net:2020/stream/hirufmgarden", l:"https://upload.wikimedia.org/wikipedia/commons/thumb/1/1a/Hiru_FM_Logo.png/320px-Hiru_FM_Logo.png"},
+      {n:"ශක්ති FM", g:"FM Radio", u:"https://mbc.thestreamtech.com:8086/stream", l:"https://upload.wikimedia.org/wikipedia/en/thumb/5/5e/Shakthi_FM_logo.png/220px-Shakthi_FM_logo.png"},
+      {n:"නෙත් FM", g:"FM Radio", u:"https://cp11.serverse.com/proxy/nethfm/stream", l:"https://nethfm.com/assets/images/neth-logo.png"},
+      {n:"සියත FM", g:"FM Radio", u:"https://srv01.onlineradio.voaplus.com/siyathafm", l:"https://siyatha.com/wp-content/uploads/2020/09/siyatha-tv-logo.png"},
+      {n:"වසන්තම් FM", g:"FM Radio", u:"https://cp12.serverse.com/proxy/vasanthamfm?mp=/stream", l:"https://www.vasanthamtv.lk/wp-content/uploads/2021/06/vasantham-logo.png"},
+      {n:"රන් FM", g:"FM Radio", u:"https://a3.asurahosting.com/listen/ranfm/radio.mp3", l:"https://www.ranfm.lk/wp-content/uploads/2022/03/ran-fm-logo.png"},
+      {n:"Star FM", g:"FM Radio", u:"https://stream.starfm.lk:12025/stream", l:"https://stream.starfm.lk:12025/static/logo.png"},
+      {n:"Kothmale FM", g:"FM Radio", u:"https://s11.myradiostream.com:25116/listen.mp3", l:"https://i.imgur.com/2QY7V8Y.png"},
+      {n:"Gold FM", g:"FM Radio", u:"https://radio.lotustechnologieslk.net:2020/stream/goldfmgarden", l:"https://upload.wikimedia.org/wikipedia/en/thumb/3/36/Gold_FM_Sri_Lanka_Logo.png/220px-Gold_FM_Sri_Lanka_Logo.png"},
+      {n:"Sun FM", g:"FM Radio", u:"https://radio.lotustechnologieslk.net:2020/stream/sunfmgarden", l:"https://upload.wikimedia.org/wikipedia/en/thumb/9/90/Sun_FM_Sri_Lanka_Logo.png/220px-Sun_FM_Sri_Lanka_Logo.png"}
+    ];
+
+    const countriesData = [
+      { id: "us", name: "United States (USA)", flag: "🇺🇸", code: "US" },
+      { id: "uk", name: "United Kingdom", flag: "🇬🇧", code: "GB" },
+      { id: "in", name: "India", flag: "🇮🇳", code: "IN" },
+      { id: "ca", name: "Canada", flag: "🇨🇦", code: "CA" },
+      { id: "cn", name: "China", flag: "🇨🇳", code: "CN" },
+      { id: "jp", name: "Japan", flag: "🇯🇵", code: "JP" },
+      { id: "pk", name: "Pakistan", flag: "🇵🇰", code: "PK" },
+      { id: "sg", name: "Singapore", flag: "🇸🇬", code: "SG" },
+      { id: "au", name: "Australia", flag: "🇦🇺", code: "AU" }
+    ];
+
+    const slGrid = document.getElementById('slGrid');
+    const radioFolderGrid = document.getElementById('radioFolderGrid');
+    const radioChannelsGrid = document.getElementById('radioChannelsGrid');
+    const favGrid = document.getElementById('favGrid');
+    const countryGrid = document.getElementById('countryGrid');
+    const countryChannelsGrid = document.getElementById('countryChannelsGrid');
+    const mainArea = document.getElementById('mainArea');
+    const radioView = document.getElementById('radioView');
+    const countryView = document.getElementById('countryView');
+    const video = document.getElementById('video');
+    const playerSection = document.getElementById('playerSection');
+    const radioPlayerSection = document.getElementById('radioPlayerSection');
+    const radioAudio = document.getElementById('radioAudio');
+    const radioArt = document.getElementById('radioArt');
+    const radioNowName = document.getElementById('radioNowName');
+    const radioNowGroup = document.getElementById('radioNowGroup');
+    const status = document.getElementById('status');
+    const qualitySelect = document.getElementById('qualitySelect');
+
+    let hls = null;
+    let selectedCountry = null;
+    let loadedCountryChannels = [];
+    let currentCategory = 'All';
+    let currentActiveChannel = null;
+
+    let apiChannelsMap = {};
+    let apiStreamsData = [];
+
+    // LocalStorage Favorites
+    let favorites = JSON.parse(localStorage.getItem('tharanga_favs') || '[]');
+
+    function saveFavs() {
+      localStorage.setItem('tharanga_favs', JSON.stringify(favorites));
+      renderFavorites();
+    }
+
+    function toggleFav(channelObj) {
+      const idx = favorites.findIndex(f => f.n === channelObj.n);
+      if (idx > -1) {
+        favorites.splice(idx, 1);
+      } else {
+        favorites.push(channelObj);
+      }
+      saveFavs();
+      updateFavButton();
+    }
+
+    function toggleFavCurrent() {
+      if (currentActiveChannel) {
+        toggleFav(currentActiveChannel);
+      }
+    }
+
+    function updateFavButton() {
+      const btn = document.getElementById('btnFav');
+      if (currentActiveChannel && favorites.some(f => f.n === currentActiveChannel.n)) {
+        btn.textContent = '★ Fav (Saved)';
+        btn.style.background = '#ffb703';
+        btn.style.color = '#000';
+      } else {
+        btn.textContent = '☆ Favorite';
+        btn.style.background = '#1a2a42';
+        btn.style.color = '#ffb703';
+      }
+    }
+
+    function addKeyTrigger(el, callback) {
+      el.addEventListener('click', callback);
+      el.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          callback();
+        }
+      });
+    }
+
+    function renderFavorites() {
+      favGrid.innerHTML = '';
+      if (favorites.length === 0) {
+        favGrid.innerHTML = '<div style="color:var(--muted); padding:10px 16px;">තවම ප්‍රියතම නාලිකා එකතු කර නොමැත.</div>';
+        return;
+      }
+      favorites.forEach((c) => {
+        const wrap = document.createElement('div');
+        wrap.className = 'card-wrap';
+        wrap.innerHTML = `
+          <div class="card" tabindex="0">
+            <img src="${c.l}" onerror="this.src='${FALLBACK_LOGO}'" alt="${c.n}">
+            <div class="name">${c.n}</div>
+          </div>
+        `;
+        addKeyTrigger(wrap.querySelector('.card'), () => loadStream(c.n, c.g, c.url, c.l));
+        favGrid.appendChild(wrap);
+      });
+    }
+
+    function renderSLChannels(filterQuery = '') {
+      slGrid.innerHTML = '';
+      const filtered = slChannels.filter(c => c.n.toLowerCase().includes(filterQuery) || c.g.toLowerCase().includes(filterQuery));
+      filtered.forEach((c, idx) => {
+        const wrap = document.createElement('div');
+        wrap.className = 'card-wrap';
+        const real = "https://str001.peotv.lk/ndrm/live/" + c.p + "/master.m3u8";
+        const masterUrl = PROXY + "/proxy/m3u8?url=" + encodeURIComponent(real);
+        
+        wrap.innerHTML = `
+          <div class="card" tabindex="0">
+            <span class="num-tag">${idx + 1}</span>
+            <img src="${c.l}" onerror="this.src='${FALLBACK_LOGO}'" alt="${c.n}">
+            <div class="name">${c.n}</div>
+          </div>
+          <span class="live-tag">LIVE</span>
+        `;
+        addKeyTrigger(wrap.querySelector('.card'), () => loadStream(c.n, c.g, masterUrl, c.l));
+        slGrid.appendChild(wrap);
+      });
+    }
+
+    // Render Radio Folder Icon
+    function renderRadioFolder() {
+      radioFolderGrid.innerHTML = '';
+      const wrap = document.createElement('div');
+      wrap.className = 'card-wrap';
+      wrap.innerHTML = `
+        <div class="card" tabindex="0">
+          <div class="folder-icon">📻</div>
+          <div class="name">Sri Lanka FM Radio</div>
+        </div>
+      `;
+      addKeyTrigger(wrap.querySelector('.card'), () => openRadioFolder());
+      radioFolderGrid.appendChild(wrap);
+    }
+
+    function openRadioFolder() {
+      mainArea.style.display = 'none';
+      radioView.style.display = 'block';
+      renderRadioChannels();
+    }
+
+    function renderRadioChannels(filterQuery = '') {
+      radioChannelsGrid.innerHTML = '';
+      const filtered = radioChannels.filter(c => c.n.toLowerCase().includes(filterQuery));
+      filtered.forEach((c) => {
+        const wrap = document.createElement('div');
+        wrap.className = 'card-wrap';
+        
+        wrap.innerHTML = `
+          <div class="card" tabindex="0">
+            <img src="${c.l}" onerror="this.src='${FALLBACK_LOGO}'" alt="${c.n}">
+            <div class="name">${c.n}</div>
+          </div>
+          <span class="live-tag">RADIO</span>
+        `;
+        addKeyTrigger(wrap.querySelector('.card'), () => loadRadio(c.n, c.g, c.u, c.l));
+        radioChannelsGrid.appendChild(wrap);
+      });
+    }
+
+    function renderCountryCards(filterQuery = '') {
+      countryGrid.innerHTML = '';
+      const filtered = countriesData.filter(ct => ct.name.toLowerCase().includes(filterQuery));
+      filtered.forEach((ct) => {
+        const wrap = document.createElement('div');
+        wrap.className = 'card-wrap';
+        wrap.innerHTML = `
+          <div class="card" tabindex="0">
+            <div class="folder-icon">${ct.flag}</div>
+            <div class="name">${ct.name}</div>
+          </div>
+        `;
+        addKeyTrigger(wrap.querySelector('.card'), () => openCountry(ct.id));
+        countryGrid.appendChild(wrap);
+      });
+    }
+
+    async function openCountry(countryId) {
+      selectedCountry = countriesData.find(c => c.id === countryId);
+      if(!selectedCountry) return;
+
+      mainArea.style.display = 'none';
+      countryView.style.display = 'block';
+
+      document.getElementById('countryTitle').textContent = selectedCountry.flag + " " + selectedCountry.name + " Channels";
+      countryChannelsGrid.innerHTML = '<div style="padding:40px; text-align:center; width:100%; grid-column: 1/-1;">නාලිකා පූරණය වෙමින් පවතී...</div>';
+
+      try {
+        if (Object.keys(apiChannelsMap).length === 0) {
+          const [chanRes, streamRes] = await Promise.all([
+            fetch('https://iptv-org.github.io/api/channels.json'),
+            fetch('https://iptv-org.github.io/api/streams.json')
+          ]);
+          const channels = await chanRes.json();
+          apiStreamsData = await streamRes.json();
+
+          channels.forEach(ch => {
+            apiChannelsMap[ch.id] = ch;
+          });
+        }
+
+        const countryStreams = apiStreamsData.filter(st => {
+          if (!st.channel) return false;
+          const ch = apiChannelsMap[st.channel];
+          if (!ch) return false;
+          return ch.country === selectedCountry.code;
+        });
+
+        const seenNames = new Set();
+        loadedCountryChannels = [];
+
+        countryStreams.forEach(st => {
+          const ch = apiChannelsMap[st.channel];
+          const name = ch.name || st.title || 'Live Channel';
+          
+          if (!seenNames.has(name)) {
+            seenNames.add(name);
+            const cat = (ch.categories && ch.categories.length > 0) ? ch.categories[0] : 'General';
+            const formattedCat = cat.charAt(0).toUpperCase() + cat.slice(1);
+            
+            loadedCountryChannels.push({
+              n: name,
+              cat: formattedCat,
+              url: st.url,
+              l: (ch.logo) ? ch.logo : FALLBACK_LOGO
+            });
+          }
+        });
+
+        const categories = ['All', ...new Set(loadedCountryChannels.map(c => c.cat))];
+        const categoryBar = document.getElementById('categoryBar');
+        categoryBar.innerHTML = '';
+        currentCategory = 'All';
+
+        categories.forEach(cat => {
+          const btn = document.createElement('button');
+          btn.className = `cat-btn ${cat === 'All' ? 'active' : ''}`;
+          btn.textContent = cat;
+          btn.tabIndex = 0;
+          addKeyTrigger(btn, () => {
+            document.querySelectorAll('.cat-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            currentCategory = cat;
+            renderCountryChannels();
+          });
+          categoryBar.appendChild(btn);
+        });
+
+        renderCountryChannels();
+      } catch (err) {
+        countryChannelsGrid.innerHTML = '<div style="padding:40px; text-align:center; width:100%; grid-column: 1/-1; color:red;">නාලිකා ලබාගැනීමට නොහැකි විය.</div>';
+      }
+    }
+
+    function renderCountryChannels() {
+      countryChannelsGrid.innerHTML = '';
+      const q = document.getElementById('q').value.toLowerCase();
+
+      let list = loadedCountryChannels;
+      if (currentCategory !== 'All') list = list.filter(c => c.cat === currentCategory);
+      if (q) list = list.filter(c => c.n.toLowerCase().includes(q) || c.cat.toLowerCase().includes(q));
+
+      if(list.length === 0) {
+        countryChannelsGrid.innerHTML = '<div style="padding:20px; text-align:center; grid-column: 1/-1;">නාලිකා හමු නොවීය</div>';
+        return;
+      }
+
+      list.forEach((c) => {
+        const wrap = document.createElement('div');
+        wrap.className = 'card-wrap';
+        wrap.innerHTML = `
+          <div class="card" tabindex="0">
+            <img src="${c.l}" onerror="this.src='${FALLBACK_LOGO}'" alt="${c.n}">
+            <div class="name">${c.n}</div>
+          </div>
+          <span class="live-tag">${c.cat}</span>
+        `;
+        addKeyTrigger(wrap.querySelector('.card'), () => loadStream(c.n, c.cat, c.url, c.l));
+        countryChannelsGrid.appendChild(wrap);
+      });
+    }
+
+    function showMainArea() {
+      radioView.style.display = 'none';
+      countryView.style.display = 'none';
+      mainArea.style.display = 'block';
+      selectedCountry = null;
+      document.getElementById('q').value = '';
+      renderSLChannels();
+      renderRadioFolder();
+      renderCountryCards();
+    }
+
+
+    function loadRadio(name, group, streamUrl, logo) {
+      // Stop TV playback if it is currently running.
+      if (hls) { hls.destroy(); hls = null; }
+      video.pause();
+      video.removeAttribute('src');
+      video.load();
+
+      // Show only the FM player.
+      playerSection.classList.remove('active');
+      radioPlayerSection.classList.add('active');
+
+      radioNowName.textContent = name;
+      radioNowGroup.textContent = group || 'FM Radio';
+      radioArt.src = logo || FALLBACK_LOGO;
+      radioArt.onerror = () => { radioArt.src = FALLBACK_LOGO; };
+
+      radioAudio.pause();
+      radioAudio.src = streamUrl;
+      radioAudio.load();
+
+      radioAudio.play().catch(() => {
+        // Browser autoplay policy may require one tap on the play button.
+      });
+
+      radioPlayerSection.scrollIntoView({behavior: 'smooth', block: 'start'});
+    }
+
+    function closeRadioPlayer() {
+      radioAudio.pause();
+      radioAudio.removeAttribute('src');
+      radioAudio.load();
+      radioPlayerSection.classList.remove('active');
+    }
+
+    async function loadStream(name, group, streamUrl, logo) {
+      currentActiveChannel = { n: name, g: group, url: streamUrl, l: logo };
+      updateFavButton();
+
+      playerSection.classList.add('active');
+      document.getElementById('nowName').textContent = name;
+      document.getElementById('nowGroup').textContent = group;
+
+      status.style.display = 'block';
+      status.textContent = name + ' පූරණය වෙමින්...';
+
+      if (hls) { hls.destroy(); hls = null; }
+      qualitySelect.innerHTML = '<option value="-1">Auto Quality</option>';
+
+      try {
+        if (streamUrl.endsWith('.m3u8') && Hls.isSupported()) {
+          hls = new Hls({ enableWorker: true });
+          hls.loadSource(streamUrl);
+          hls.attachMedia(video);
+          
+          hls.on(Hls.Events.MANIFEST_PARSED, (event, data) => {
+            status.style.display = 'none';
+            video.play().catch(()=>{});
+
+            if (hls.levels.length > 1) {
+              hls.levels.forEach((level, index) => {
+                const opt = document.createElement('option');
+                opt.value = index;
+                opt.textContent = `${level.height || 'SD'}p (${Math.round(level.bitrate/1000)} kbps)`;
+                qualitySelect.appendChild(opt);
+              });
+            }
+          });
+
+          hls.on(Hls.Events.ERROR, (e, d) => {
+            if (d.fatal) {
+              status.style.display = 'block';
+              status.textContent = 'දෝෂයක්. වෙනත් නාලිකාවක් උත්සාහ කරන්න.';
+            }
+          });
+        } else {
+          // Direct MP3/AAC Audio Streams or Native HLS
+          video.src = streamUrl;
+          video.play().then(() => {
+            status.style.display = 'none';
+          }).catch(err => {
+            status.style.display = 'block';
+            status.textContent = 'පූරණය අසාර්ථකයි';
+          });
+        }
+      } catch (err) {
+        status.style.display = 'block';
+        status.textContent = 'පූරණය අසාර්ථකයි';
+      }
+
+      playerSection.scrollIntoView({behavior: 'smooth'});
+    }
+
+    function changeQuality(levelIndex) {
+      if (hls) {
+        hls.currentLevel = parseInt(levelIndex);
+      }
+    }
+
+    function closePlayer() {
+      closeRadioPlayer();
+      if (document.fullscreenElement || document.webkitFullscreenElement) {
+        (document.exitFullscreen || document.webkitExitFullscreen)?.call(document);
+      }
+      playerSection.classList.remove('active');
+      if (hls) { hls.destroy(); hls = null; }
+      video.removeAttribute('src');
+    }
+
+    function toggleFullscreen() {
+      const el = playerSection;
+      if (!document.fullscreenElement && !document.webkitFullscreenElement) {
+        if (el.requestFullscreen) el.requestFullscreen();
+        else if (el.webkitRequestFullscreen) el.webkitRequestFullscreen();
+      } else {
+        if (document.exitFullscreen) document.exitFullscreen();
+        else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
+      }
+    }
+
+    function handleSearch() {
+      const q = document.getElementById('q').value.toLowerCase();
+      if (radioView.style.display === 'block') {
+        renderRadioChannels(q);
+      } else if (selectedCountry) {
+        renderCountryChannels();
+      } else {
+        renderSLChannels(q);
+        renderCountryCards(q);
+      }
+    }
+
+    // Remote Shortcuts
+    let keyBuffer = '';
+    let keyTimer = null;
+
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        if (playerSection.classList.contains('active')) closePlayer();
+        if (radioPlayerSection.classList.contains('active')) closeRadioPlayer();
+      }
+
+      if (e.key >= '0' && e.key <= '9' && document.activeElement.tagName !== 'INPUT') {
+        keyBuffer += e.key;
+        clearTimeout(keyTimer);
+        keyTimer = setTimeout(() => {
+          const num = parseInt(keyBuffer);
+          if (num > 0 && num <= slChannels.length) {
+            const c = slChannels[num - 1];
+            const real = "https://str001.peotv.lk/ndrm/live/" + c.p + "/master.m3u8";
+            const masterUrl = PROXY + "/proxy/m3u8?url=" + encodeURIComponent(real);
+            loadStream(c.n, c.g, masterUrl, c.l);
+          }
+          keyBuffer = '';
+        }, 1200);
+      }
+    });
+
+    // Init
+    renderFavorites();
+    renderSLChannels();
+    renderRadioFolder();
+    renderCountryCards();
+  </script>
+</body>
+</html>
