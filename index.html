@@ -206,10 +206,11 @@ body{font-family:'Poppins',sans-serif;background:#0b1120;color:#e2e8f0;min-heigh
 .mode-buttons #btnT.on{background:linear-gradient(135deg,#075985,#2563eb);border-color:#93c5fd;color:#fff;}
 .mode-buttons #btnYouTubeApp{background:linear-gradient(135deg,#b91c1c,#ef4444);border-color:#f87171;color:#fff;font-weight:800;}
 .mode-buttons #btnSpotify{background:linear-gradient(135deg,#065f46,#1db954);border-color:#1ed760;color:#fff;font-weight:800;}
+.mode-buttons #btnDialogTV{background:linear-gradient(135deg,#7c2d12,#ea580c);border-color:#fb923c;color:#fff;font-weight:800;}
 .mode-buttons #btnR{background:linear-gradient(135deg,#047857,#10b981);border-color:#34d399;color:#fff;font-weight:800;}
 .mode-buttons #btnCricket{background:linear-gradient(135deg,#b45309,#f59e0b);border-color:#fbbf24;color:#fff;font-weight:800;}
 .mode-buttons #btnFav{background:linear-gradient(135deg,#6d28d9,#a855f7);border-color:#c084fc;color:#fff;font-weight:800;}
-.mode-buttons #btnT:focus,.mode-buttons #btnYouTubeApp:focus,.mode-buttons #btnSpotify:focus,.mode-buttons #btnR:focus,.mode-buttons #btnCricket:focus,.mode-buttons #btnFav:focus,.mode-buttons #btnT:hover,.mode-buttons #btnYouTubeApp:hover,.mode-buttons #btnSpotify:hover,.mode-buttons #btnR:hover,.mode-buttons #btnCricket:hover,.mode-buttons #btnFav:hover{outline:3px solid #facc15;outline-offset:2px;filter:brightness(1.12);color:#fff;}
+.mode-buttons #btnT:focus,.mode-buttons #btnYouTubeApp:focus,.mode-buttons #btnSpotify:focus,.mode-buttons #btnDialogTV:focus,.mode-buttons #btnR:focus,.mode-buttons #btnCricket:focus,.mode-buttons #btnFav:focus,.mode-buttons #btnT:hover,.mode-buttons #btnYouTubeApp:hover,.mode-buttons #btnSpotify:hover,.mode-buttons #btnDialogTV:hover,.mode-buttons #btnR:hover,.mode-buttons #btnCricket:hover,.mode-buttons #btnFav:hover{outline:3px solid #facc15;outline-offset:2px;filter:brightness(1.12);color:#fff;}
 
 
 /* Home action buttons: keep all five controls on one horizontal row */
@@ -249,6 +250,7 @@ body{font-family:'Poppins',sans-serif;background:#0b1120;color:#e2e8f0;min-heigh
     <div class="mode-buttons" aria-label="TV Radio Cricket controls">
       <button class="btn youtube-app-btn" id="btnYouTubeApp" onclick="openYouTubeApp()">▶ YouTube</button>
       <button class="btn" id="btnSpotify" onclick="openSpotifyApp()">🎵 Spotify</button>
+      <button class="btn" id="btnDialogTV" onclick="openDialogTV()">📺 Dialog TV</button>
       <button class="btn" id="btnR" onclick="setMode('radio')">📻 FM Radio</button>
       <button class="btn" id="btnCricket" onclick="openCricket()">🏏 Cricket Score</button>
       <button class="btn" id="btnFav" onclick="showFavs()">★ Save</button>
@@ -861,6 +863,37 @@ function openSpotifyApp(){
   window.location.href = searchUrl;
 }
 
+
+
+function openDialogTV(){
+  // Dedicated external open for https://tivi.viulk.xyz/tv?id=12
+  // Android: VIEW intent so system player / browser / VLC etc. can open it.
+  // Not played inside Tharanga in-app HLS player.
+  var url = 'https://tivi.viulk.xyz/tv?id=12';
+  var ua = navigator.userAgent || '';
+  var isAndroid = /Android/i.test(ua);
+  if (isAndroid) {
+    var intent = 'intent://tivi.viulk.xyz/tv?id=12#Intent;scheme=https;action=android.intent.action.VIEW;category=android.intent.category.BROWSABLE;S.browser_fallback_url='
+      + encodeURIComponent(url) + ';end';
+    try {
+      var link = document.createElement('a');
+      link.href = intent;
+      link.style.display = 'none';
+      document.body.appendChild(link);
+      link.click();
+      setTimeout(function(){ if (link.parentNode) link.parentNode.removeChild(link); }, 1200);
+      setTimeout(function(){
+        if (!document.hidden) {
+          try { history.pushState({tharangaBackGuard:true}, '', window.location.href); } catch (e) {}
+          window.location.href = url;
+        }
+      }, 900);
+      return;
+    } catch (e) {}
+  }
+  try { history.pushState({tharangaBackGuard:true}, '', window.location.href); } catch (e) {}
+  window.location.href = url;
+}
 
 function setMode(m){
   mode=m;
